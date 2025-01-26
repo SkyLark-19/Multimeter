@@ -1,21 +1,20 @@
 #include <Arduino.h>
-#include <WiFi.h>
-#include <WebServer.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
 
 // Network credentials
-const char* ssid = "Multimeters-Assemble";
+const char* ssid = "Multimeters-Assemble-Here";
 const char* password = "Assembled19";
 
-WebServer server(80);  // Web server instance
+ESP8266WebServer server(80);  // Web server instance
 
 String result = "-";   // Multimeter reading variable
 
-const int batteryPin = 34; // Analog pin to read battery voltage
+const int batteryPin = A0; // Analog pin to read battery voltage
 
-// Battery percentage calculation
 float readBatteryVoltage() {
   int rawValue = analogRead(batteryPin);
-  float voltage = (rawValue / 4095.0) * 3.3 * 2; // Voltage divider with two 100k ohm resistors
+  float voltage = (rawValue / 1023.0) * 3.3 * 2; // Voltage divider with two 100k ohm resistors
   return voltage;
 }
 
@@ -296,13 +295,13 @@ const char *htmlContent = R"rawliteral(
 
 // Helper function to send a command to STM32 and get the response
 String sendCommandToSTM32(const String& command) {
-  Serial2.print(command); // Send command to STM32
+  Serial1.print(command); // Send command to STM32
 
   String response = "";
   unsigned long timeout = millis() + 5000; // 5 second timeout
   while (millis() < timeout) {
-    if (Serial2.available()) {
-      response += Serial2.readStringUntil('\n'); // Read response until newline
+    if (Serial1.available()) {
+      response += Serial1.readStringUntil('\n'); // Read response until newline
       if (response.endsWith("\n")) { // End of transmission
         break;
       }
@@ -319,14 +318,14 @@ void handleRoot() {
 // Function to handle the toggle path for Voltage
 void handleToggle1() {
  Serial.println("1");
- Serial2.print("nooV");
+ Serial1.print("nooV");
   
   // Wait for the STM32 to respond and collect the result
   result = "";
   unsigned long timeout = millis() + 5000; // 5 seconds timeout
   while (millis() < timeout) {
-    if (Serial2.available()) {
-      result += Serial2.readStringUntil('\n'); // Read result until newline
+    if (Serial1.available()) {
+      result += Serial1.readStringUntil('\n'); // Read result until newline
     }
   }
   
@@ -337,14 +336,14 @@ void handleToggle1() {
 // Function to handle the toggle path for Milliamphere
 void handleToggle2() {
   Serial.println("2");
- Serial2.print("nooM");
+ Serial1.print("nooM");
   
   // Wait for the STM32 to respond and collect the result
   result = "";
   unsigned long timeout = millis() + 5000; // 5 seconds timeout
   while (millis() < timeout) {
-    if (Serial2.available()) {
-      result += Serial2.readStringUntil('\n'); // Read result until newline
+    if (Serial1.available()) {
+      result += Serial1.readStringUntil('\n'); // Read result until newline
     }
   }
   
@@ -355,14 +354,14 @@ void handleToggle2() {
 // Function to handle the toggle path for Microamphere
 void handleToggle3() {
   Serial.println("3");
- Serial2.print("nooU");
+ Serial1.print("nooU");
   
   // Wait for the STM32 to respond and collect the result
   result = "";
   unsigned long timeout = millis() + 5000; // 5 seconds timeout
   while (millis() < timeout) {
-    if (Serial2.available()) {
-      result += Serial2.readStringUntil('\n'); // Read result until newline
+    if (Serial1.available()) {
+      result += Serial1.readStringUntil('\n'); // Read result until newline
     }
   }
   
@@ -380,7 +379,7 @@ void handleGetReading() {
 void handleStoreValues() {
   if (server.arg("store") == "true") {
     Serial.println("Storing values...");
-    Serial2.print("Y"); // Send 'Y' command to STM32 to store values
+    Serial1.print("Y"); // Send 'Y' command to STM32 to store values
     server.send(200, "text/plain", "Values will be stored.");
   }
 }
@@ -394,7 +393,7 @@ void handleGetStoredValues() {
 
 void handleReset() {
   Serial.println("6");
-  Serial2.print("nooR");
+  Serial1.print("nooR");
   server.send(200, "text/plain", "Device is resetting...");
 }
 
@@ -403,7 +402,7 @@ void setupWiFi() {
   Serial.begin(115200);
   Serial.println("Setting up WiFi Access Point...");
 
-  // Set up the ESP32 as an access point
+  // Set up the ESP8266 as an access point
   WiFi.softAP(ssid, password);
 
   IPAddress IP = WiFi.softAPIP();
@@ -429,16 +428,15 @@ void setup() {
   server.begin();
   Serial.println("HTTP server started.");
 
-  // Initialize the UART communication with the STM32
-  Serial2.begin(115200, SERIAL_8N1, 16, 17); // Use GPIO 16 as RX and GPIO 17 as TX
+  Serial.begin(115200); // Initialize the UART communication
 }
 
 void loop() {
   server.handleClient();
   // Check if data is available from STM32
-  while (Serial2.available()) {
+  while (Serial1.available()) {
     // Read and update the global result from STM32
-    result += Serial2.readStringUntil('\n'); // Read result until newline
+    result += Serial1.readStringUntil('\n'); // Read result until newline
     Serial.print("Received from STM32: ");
     Serial.println(result);
   }
